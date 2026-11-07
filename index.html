@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Feedback Loop Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+body{margin:0}[hidden]{display:none!important}
+/* Layout: lab bench — loop diagram on the left, instruments (readouts, graph, controls) on the right, log + symptoms below */
+:root{
+  --bg:#EEF0FE; --panel:#FFFFFF; --soft:#DDE2FD; --line:#C9CFF5;
+  --ink:#16211C; --muted:#5E6698; --deep:#3B4A9E; --peri:#95A6FC;
+  --heat:#D2553F; --sweat:#2D8FC4; --flow:#C2408A; --adh:#7A55D0; --imm:#B7791F; --sat:#1E9E5A; --on:#19A359; --warn:#C98A12; --danger:#C0392B;
+  --display:"Lexend",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141833; --panel:#1E2346; --soft:#2A3060; --line:#39407A; --ink:#E7EAFB; --muted:#A3AADB; --deep:#B4C0FF; --peri:#7F90F0;
+  --heat:#FF7A63; --sweat:#5DB8EA; --flow:#F06AB4; --adh:#B59CFF; --imm:#F2B63A; --sat:#3DD68A; --on:#3DD68A; --warn:#F2B63A; --danger:#FF6B5B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141833; --panel:#1E2346; --soft:#2A3060; --line:#39407A; --ink:#E7EAFB; --muted:#A3AADB; --deep:#B4C0FF; --peri:#7F90F0;
+  --heat:#FF7A63; --sweat:#5DB8EA; --flow:#F06AB4; --adh:#B59CFF; --imm:#F2B63A; --sat:#3DD68A; --on:#3DD68A; --warn:#F2B63A; --danger:#FF6B5B; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(26px,4vw,38px);margin:2px 0 0;color:var(--deep);text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:17px;margin:0;color:var(--deep)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font:600 14px var(--display);padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--panel);color:var(--deep);cursor:pointer}
+.tab[aria-selected="true"]{background:var(--deep);color:var(--panel);border-color:var(--deep)}
+.tab:disabled{opacity:.5;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:18px}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;align-content:start;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--muted)}
+svg{width:100%;height:auto;display:block}
+.node rect.base{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
+.node rect.glow{transition:opacity .25s}
+.node text{font-family:var(--display);font-weight:600;font-size:13px;fill:var(--deep)}
+.node text.sub{font-family:var(--body);font-weight:400;font-size:11px;fill:var(--muted)}
+.node{cursor:pointer}
+.node:focus-visible rect.base,.node.sel rect.base{stroke:var(--deep);stroke-width:3}
+.node.broken rect.base{stroke:var(--danger);stroke-dasharray:5 4;stroke-width:2.5}
+.arrow{fill:none;stroke:var(--peri);stroke-width:3}
+.arrow.live{stroke:var(--deep);stroke-dasharray:8 6;animation:flow 0.9s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-14}}
+@media (prefers-reduced-motion:reduce){.arrow.live{animation:none}}
+.arrowhead{fill:var(--peri)}
+.lbl{font-family:var(--body);font-size:11px;font-style:italic;fill:var(--muted)}
+.xmark{stroke:var(--danger);stroke-width:4;stroke-linecap:round}
+.info{background:var(--soft);border-radius:10px;padding:12px 14px;min-height:92px}
+.info h3{margin:0 0 4px;font:600 15px var(--display);color:var(--deep)}
+.info p{margin:0;font-size:14.5px}
+.readouts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.readouts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ro{border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+.ro .k{font-size:12px;color:var(--muted)}
+.ro .v{font:600 22px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ro .u{font-size:12px;color:var(--muted);font-family:var(--body);font-weight:400}
+canvas{width:100%;height:auto;display:block;border-radius:8px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button.btn{font:600 14px var(--display);padding:9px 14px;border-radius:10px;border:1.5px solid var(--deep);background:var(--panel);color:var(--deep);cursor:pointer}
+button.btn.primary{background:var(--deep);color:var(--panel)}
+button.btn.go{background:var(--heat);border-color:var(--heat);color:#fff}
+button.btn:focus-visible,.tab:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--peri);outline-offset:2px}
+label.f{display:grid;gap:3px;font-size:13px;color:var(--muted)}
+select{font:15px var(--body);padding:6px 8px;border-radius:8px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink)}
+.row3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:18px}
+@media (max-width:900px){.row3{grid-template-columns:minmax(0,1fr)}}
+.toggle{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.toggle input{margin-top:4px;width:18px;height:18px;accent-color:var(--danger)}
+.toggle b{font-family:var(--display);font-weight:600;color:var(--ink)}
+.toggle span{display:block;font-size:13px;color:var(--muted)}
+.sym{display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;font-size:14px;border:1px solid var(--line)}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--on);flex:none}
+.chip.warn i{background:var(--warn)} .chip.danger i{background:var(--danger)}
+.chip.danger{border-color:var(--danger);font-weight:700}
+ol.log{margin:0;padding:0;list-style:none;display:grid;gap:4px;max-height:220px;overflow:auto;font-size:14px}
+ol.log li{display:grid;grid-template-columns:64px minmax(0,1fr);gap:8px}
+ol.log time{font:600 13px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.step{display:grid;gap:8px}
+.stepdots{display:flex;gap:6px;flex-wrap:wrap}
+.stepdots span{font:600 12px var(--display);padding:4px 9px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.stepdots span.on{background:var(--deep);color:var(--panel)}
+.note{font-size:12.5px;color:var(--muted)}
+.toggle.small{padding:6px 10px;align-items:center;align-self:end}.toggle.small input{margin-top:0;accent-color:var(--deep)}
+.icon-ring{animation:ring 1.4s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes ring{from{transform:scale(1);opacity:.7}to{transform:scale(2.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){.icon-ring{animation:none}}
+.info .tag{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.info.ex{border-left:5px solid var(--heat)} .info.rest{border-left:5px solid var(--sweat)}
+.info button{margin-top:8px;font:600 13px var(--display);padding:5px 12px;border-radius:8px;border:1.5px solid var(--deep);background:var(--deep);color:var(--panel);cursor:pointer}
+.info.flash{animation:flash .6s ease-out}
+@keyframes flash{from{background:var(--peri)}to{background:var(--soft)}}
+@media (prefers-reduced-motion:reduce){.info.flash{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">BIO 103 · Unit 3 · Homeostasis &amp; Exercise</div>
+      <h1>Feedback Loop Lab</h1>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Body system">
+      <button class="tab" role="tab" aria-selected="true" id="tab-temp" data-sys="temp">Temperature</button>
+      <button class="tab" role="tab" aria-selected="false" id="tab-water" data-sys="water">Water &amp; Electrolytes</button>
+      <button class="tab" role="tab" aria-selected="false" id="tab-muscle" data-sys="muscle">Muscle</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="h-loop">
+      <div class="panel-head"><h2 id="h-loop">The loop</h2><span class="hint">Tap any part to learn what it does.</span></div>
+      <svg id="loop" viewBox="0 0 560 430" role="img" aria-label="Feedback loop diagram"></svg>
+      <div class="info" id="info" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-inst">
+      <div class="panel-head"><h2 id="h-inst">Measurements</h2><span class="hint" id="clock">Minute 0 · Resting</span></div>
+      <div class="readouts" id="readouts"></div>
+      <canvas id="graph" width="1000" height="560" aria-label="Graph of the measurements over time"></canvas>
+      <div class="controls">
+        <button class="btn primary" id="play">Play</button>
+        <button class="btn go" id="ex">Start exercising</button>
+        <button class="btn" id="reset">Reset</button>
+        <label class="f">Speed
+          <select id="speed"><option value="0.5">Slow</option><option value="1" selected>Normal</option><option value="2">Fast</option></select></label>
+        <label class="toggle small" for="pausestep"><input type="checkbox" id="pausestep"><div><b>Pause at each step</b></div></label>
+      </div>
+    </section>
+  </div>
+
+  <div class="row3">
+    <section class="panel" aria-labelledby="h-sym">
+      <h2 id="h-sym">How the athlete feels</h2>
+      <div class="sym" id="sym" aria-live="polite"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-log">
+      <h2 id="h-log">What happened</h2>
+      <ol class="log" id="log"></ol>
+    </section>
+  </div>
+  <p class="note" id="note"></p>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+// move a value toward its target; effectors turn on at rate `up` and off at rate `down` (per time unit)
+const ease = (v, target, dt, up, down) => v + (target - v) * Math.min(1, dt * (target > v ? up : down));
+
+// =====================================================================
+// SYSTEMS. Every system uses the same loop layout:
+//   stim → sensor → brain (control center) → eff1 + eff2 (effectors) → resp → back to stim
+// S.ctrl is the control center's command mode: "off" (no signal), "hold" (keep the last signal),
+// "on" (signal follows how far the condition is from its set point). The loop steps switch the mode,
+// so the effectors only change once the icon has carried the signal to them.
+// =====================================================================
+const SYSTEMS = {};
+
+// ---------------- Temperature (minutes) ----------------
+SYSTEMS.temp = {
+  label:"Temperature", unit:"min", speed:1, tmax:40,
+  note:"This is a simplified model of a moderate run on a cool day. The numbers are illustrative and follow the same patterns as published exercise studies, but they are not from a real athlete.",
+  nodes:{
+    stim:{part:"Stimulus", name:"Muscles make heat", icon:"dumbbell", title:"Skeletal muscle cells",
+      text:"Contracting muscle cells get energy from cellular respiration. Only about a quarter of that energy moves the body. The rest is released as heat, which warms the blood flowing through the muscle."},
+    sensor:{part:"Sensor", name:"Thermoreceptors", icon:"neuron", title:"Thermoreceptors (sensory neurons)",
+      text:"Temperature-sensing neurons in the skin and in the brain itself detect when blood and body temperature rise or fall. They send nerve signals to the hypothalamus."},
+    brain:{part:"Control center", name:"Hypothalamus", icon:"brain", title:"Hypothalamus (brain)",
+      text:"Neurons in the hypothalamus compare body temperature to the set point, about 37 °C. When it is too high, they send signals through nerves to the sweat glands and the skin blood vessels. When temperature is back near the set point, the signals stop."},
+    eff1:{part:"Effector", name:"Sweat glands", icon:"drops", title:"Sweat glands",
+      text:"Cells in the sweat glands pull water and salts from the blood and squeeze sweat onto the skin. When sweat evaporates, it carries heat away."},
+    eff2:{part:"Effector", name:"Skin blood vessels", icon:"vessel", title:"Skin blood vessels",
+      text:"Smooth muscle cells in the walls of skin blood vessels relax, so the vessels widen (vasodilation). More warm blood flows from the core to the skin, where heat passes to the cooler air. At rest, they narrow again."},
+    resp:{part:"Response", name:"Heat leaves the body", icon:"heatwaves", title:"Response",
+      text:"Evaporating sweat and warm blood near the skin move heat out of the body. This reduces the stimulus: core temperature stops climbing and falls back toward the set point."},
+  },
+  readouts:[
+    {label:"Core temperature", unit:"°C", color:"--heat", get:S => S.T.toFixed(1)},
+    {label:"Sweat rate", unit:"%", color:"--sweat", get:S => Math.round(S.sweat)},
+    {label:"Skin blood flow", unit:"%", color:"--flow", get:S => Math.round(S.flow)},
+    {label:"Heart rate", unit:"bpm", color:"--ink", get:S => Math.round(S.hr)},
+  ],
+  center:{label:"Core temperature", value:S => S.T.toFixed(1) + " °C", sub:"set point 37.0 °C", color:"--heat"},
+  graph:{
+    top:{key:"T", label:"Core temperature (°C)", color:"--heat", set:37, setLabel:"set point",
+      range:H => [36.5, 39], ticks:[37, 37.5, 38, 38.5, 39], fmt:v => v + "°"},
+    bottom:[{key:"sweat", label:"Sweat rate", color:"--sweat"}, {key:"flow", label:"Skin blood flow", color:"--flow"}],
+    xticks:[0,5,10,15,20,25,30,35,40].map(m => [m, String(m)]), xtitle:"minutes",
+  },
+  init:() => ({T:37, sweat:0, flow:10, hr:70, net:0}),
+  step(S, dt) {
+    const e = S.T - 37;
+    if (S.ctrl === "on") S.cmd = clamp((e - 0.05) / 0.6, 0, 1); else if (S.ctrl === "off") S.cmd = 0;
+    S.flow = ease(S.flow, 10 + 90 * S.cmd, dt, 0.35, 0.8);
+    S.sweat = ease(S.sweat, 100 * S.cmd, dt, 0.35, 0.8);
+    const made = 1 + (S.ex ? 9.1 : 0);                    // heat made (resting = 1)
+    const lost = 0.7 + 0.3 * e + 3 * S.flow / 100 + 11 * S.sweat / 100;
+    S.net = made - lost;
+    S.T = clamp(S.T + S.net * 0.012 * dt, 36.4, 41);
+    S.hr = ease(S.hr, 70 + (S.ex ? 74 : 0) + 12 * Math.max(0, e), dt, 0.9, 0.9);
+  },
+  hold(S) { S.cmd = clamp(Math.max((S.flow - 10) / 90, S.sweat / 100), 0, 1); S.ctrl = "hold"; },
+  act:S => { const e = S.T - 37; return { stim:S.ex ? 0.7 : 0, sensor:clamp(Math.abs(e) / 0.6, 0, 1), brain:clamp((e - 0.05) / 0.6, 0, 1) * (S.ctrl === "off" ? 0 : 1),
+    eff1:S.sweat / 100, eff2:(S.flow - 10) / 90, resp:clamp((S.sweat + S.flow - 10) / 140, 0, 1) }; },
+  symptoms(S) {
+    const out = [];
+    if (S.T < 37.4) out.push(["ok", S.ex ? "Feels fine, a little warm" : "Feels normal"]); else out.push(["ok", "Warm, flushed skin"]);
+    if (S.sweat > 25) out.push(["ok", "Sweating"]);
+    if (S.hr > 120) out.push(["ok", "Breathing hard, heart beating fast"]);
+    return out;
+  },
+  msgs:{ start:"Athlete is resting. Core temperature is at the set point.", exOn:"Exercise starts. Muscles release more heat.", exOff:"Exercise stops. Muscles release much less heat." },
+  // One loop. During exercise the icon makes one narrated trip from the stimulus to the response.
+  // In recovery the same loop keeps running: the icon travels back along "reduces the stimulus" as the stimulus shrinks.
+  stages(kind, S, P, since) {
+    const T = () => S.T.toFixed(1);
+    if (kind === "ex") return [
+      { at:"stim", go:() => true, who:"Stimulus", say:() => `Your muscles are working hard. Most of the energy they use is released as heat, so core temperature starts to rise above the set point.` },
+      { at:"sensor", go:() => S.T - 37 > 0.15, who:"Sensor", say:() => `Thermoreceptors detect the rising temperature (${T()} °C) and send nerve signals to the hypothalamus.` },
+      { at:"brain", go:() => S.T - 37 > 0.25, who:"Control center", act:() => { P.tCtrl = S.t; },
+        say:() => `The hypothalamus compares ${T()} °C to the set point of 37.0 °C. It's too high, so it sends signals through nerves to the sweat glands and skin blood vessels.` },
+      { at:"eff", go:() => since("tCtrl") > 0.5, who:"Effectors", act:() => { S.ctrl = "on"; P.tEff = S.t; },
+        say:() => `The signals arrive. Sweat glands release more sweat onto the skin, and skin blood vessels widen to carry warm blood to the surface. Nerve signals arrive in a fraction of a second, but these effectors take a few minutes to fully respond.` },
+      { at:"resp", go:() => (S.net < 0.4 && since("tEff") > 4) || since("tEff") > 8, who:"Response",
+        say:() => `Heat leaves the body as sweat evaporates and warm blood flows near the skin. Core temperature came down a little and leveled off at ${T()} °C, where heat lost matches heat made. The loop keeps running like this as long as you exercise. Stop exercising to see the recovery.` },
+    ];
+    return [
+      { at:"stim", go:() => true, who:"Exercise stops", act:() => { S.ctrl = "on"; },
+        say:() => `Muscles now release much less heat, but the sweat glands and skin blood vessels are still working. The response is now bigger than the stimulus, so core temperature (${T()} °C) falls toward the set point.` },
+      { at:"brain", go:() => S.T - 37 < 0.6 * P.e0, who:"Weaker signals",
+        say:() => `Thermoreceptors detect the falling temperature (${T()} °C). Because it is closer to the set point, the hypothalamus sends weaker signals.` },
+      { at:"eff", go:() => S.sweat < 0.5 * P.s0, who:"Effectors slow down", say:() => `With weaker signals, sweating slows down and skin blood vessels start to narrow again.` },
+      { at:"resp", go:() => S.T - 37 < 0.15, who:"Back at the set point", act:() => { S.ctrl = "off"; },
+        say:() => `Core temperature is back at the set point (${T()} °C). The stimulus is gone, so the hypothalamus stops sending signals.` },
+      { at:"stim", go:() => S.sweat < 2 && S.flow < 12, who:"Loop off", end:true,
+        say:() => `Sweating and skin blood flow are back to resting levels. The loop has shut off until a new stimulus comes along. Homeostasis!` },
+    ];
+  },
+  progress:(S, P) => 1 - (S.T - 37) / P.e0,
+  passStart:S => ({ e0:Math.max(0.05, S.T - 37), s0:Math.max(1, S.sweat) }),
+};
+
+// ---------------- Water & Electrolytes (minutes) ----------------
+// W = change in plasma volume (blood water), %. ADH and thirst are the two effector signals.
+SYSTEMS.water = {
+  label:"Water & Electrolytes", unit:"min", speed:1, tmax:70,
+  note:"This is a simplified model of a sweaty workout followed by recovery with a drink. The numbers are illustrative and follow the same patterns as published hydration studies, but they are not from a real athlete.",
+  nodes:{
+    stim:{part:"Stimulus", name:"Sweating loses water", icon:"drops", title:"Water lost in sweat",
+      text:"Sweat glands make sweat from water and salts (electrolytes such as sodium) pulled out of the blood. As you sweat, plasma volume drops and the blood contains less water."},
+    sensor:{part:"Sensor", name:"Osmoreceptors", icon:"osmo", title:"Osmoreceptors (hypothalamus)",
+      text:"Osmoreceptors are neurons in the hypothalamus that sense how much water the blood contains. When the blood contains less water, these cells shrink slightly and send signals."},
+    brain:{part:"Control center", name:"Hypothalamus", icon:"brain", title:"Hypothalamus and pituitary gland",
+      text:"The hypothalamus compares the water in the blood to its set point. When there is too little water in the blood, it signals the pituitary gland to release the hormone ADH (antidiuretic hormone) into the bloodstream and to turn on a thirst signal."},
+    eff1:{part:"Effector", name:"Kidneys", icon:"kidney", title:"Kidneys",
+      text:"ADH travels through the blood to the kidneys. It makes kidney tubule cells add water channels, so more water moves back into the blood instead of leaving in urine. Urine becomes darker and smaller in volume."},
+    eff2:{part:"Effector", name:"Thirst → drinking", icon:"glass", title:"Thirst center (brain)",
+      text:"The thirst center makes you feel thirsty, so you drink. Water from the drink is absorbed from the intestines into the blood over several minutes. Sports drinks also replace the salts lost in sweat."},
+    resp:{part:"Response", name:"Water returns to blood", icon:"bloodup", title:"Response",
+      text:"The kidneys remove less water from the blood, which slows water loss, and water from drinking brings plasma volume back up. This reduces the stimulus."},
+  },
+  readouts:[
+    {label:"Plasma volume", unit:"% change", color:"--sweat", get:S => (S.W > 0.05 ? "+" : "") + S.W.toFixed(1)},
+    {label:"Urine color (1–8)", unit:"", color:"--imm", get:S => Math.round(S.urineColor)},
+    {label:"Thirst (1–9)", unit:"", color:"--heat", get:S => Math.round(1 + 8 * S.thirst / 100)},
+    {label:"Urine made", unit:"mL/hr", color:"--ink", get:S => Math.round(S.urine / 0.12 * 60)},
+  ],
+  center:{label:"Plasma volume", value:S => (S.W > 0.05 ? "+" : "") + S.W.toFixed(1) + "%", sub:"set point 0%", color:"--sweat"},
+  graph:{
+    top:{key:"W", label:"Plasma volume (% change)", color:"--sweat", set:0, setLabel:"set point",
+      range:H => { const lo = Math.min(...H.map(p => p.W), 0); return [lo < -7.5 ? -16 : -8, 2]; },
+      ticks:null, fmt:v => (v > 0 ? "+" : "") + v + "%"},
+    bottom:[{key:"adh", label:"ADH in blood", color:"--adh"}, {key:"thirst", label:"Thirst signal", color:"--heat"}],
+    xticks:[0,10,20,30,40,50,60,70].map(m => [m, String(m)]), xtitle:"minutes",
+  },
+  init:() => ({W:0, sw:0, adh:0, thirst:0, gut:0, absorb:0, drinkOn:false, drink:0, urine:0.12, urineColor:2, net:0}),
+  step(S, dt) {
+    S.sw = ease(S.sw, S.ex ? 0.5 : 0, dt, 0.5, 1);                  // water lost in sweat, % per minute
+    if (S.ctrl === "on") S.cmd = clamp((-S.W - 0.3) / 3, 0, 1); else if (S.ctrl === "off") S.cmd = 0;
+    S.adh = ease(S.adh, 100 * S.cmd, dt, 0.5, 0.6);                 // hormone builds up over a few minutes
+    S.thirst = ease(S.thirst, 100 * S.cmd, dt, 0.35, 0.8);
+    S.drink = S.drinkOn && !S.ex ? 0.9 * S.thirst / 100 : 0;       // drinking only happens once thirst has kicked in
+    S.absorb = 0.25 * S.gut;                                        // water moves from the intestines into the blood
+    S.gut += (S.drink - S.absorb) * dt;
+    S.urine = 0.12 * (1 - 0.9 * S.adh / 100) + 0.25 * Math.max(0, S.W);
+    S.net = 0.12 + S.absorb - S.urine - S.sw;
+    S.W = clamp(S.W + S.net * dt, -15, 4);
+    S.urineColor = clamp(2 + 5 * S.adh / 100 + 0.12 * Math.max(0, -S.W), 1, 8);
+  },
+  hold(S) { S.cmd = clamp(Math.max(S.adh, S.thirst) / 100, 0, 1); S.ctrl = "hold"; },
+  act:S => ({ stim:S.sw / 0.5, sensor:clamp(-S.W / 3, 0, 1), brain:S.ctrl === "off" ? 0 : S.cmd, eff1:S.adh / 100, eff2:S.thirst / 100, resp:clamp((S.absorb + 0.1 * S.adh / 100) / 0.6, 0, 1) }),
+  symptoms(S) {
+    const out = [];
+    if (S.W > -1.5 && S.thirst < 30) out.push(["ok", "Feels normal"]);
+    if (S.thirst >= 30 && S.thirst < 70) out.push(["ok", "Thirsty"]);
+    if (S.thirst >= 70) out.push(["warn", "Very thirsty, dry mouth"]);
+    if (S.W < -4) out.push(["warn", "Tired, mild headache"]);
+    if (S.W < -7) out.push(["danger", "Dizzy or lightheaded when standing"]);
+    if (S.urineColor >= 5.5) out.push(["warn", "Dark urine, not much of it"]);
+    if (S.drink > 0.05) out.push(["ok", "Drinking water"]);
+    if (S.W > 0.2 && S.adh < 10) out.push(["ok", "Needs to pee; urine is pale"]);
+    return out;
+  },
+  msgs:{ start:"Athlete is resting and well hydrated. Plasma volume is at the set point.", exOn:"Exercise starts. Sweating begins to pull water out of the blood.", exOff:"Exercise stops. Sweating stops." },
+  // During exercise the trip ends at the effectors. The athlete drinks once exercise stops,
+  // so the trip continues in recovery: effectors (drinking) → response → back along "reduces the stimulus".
+  restFrom:"eff",
+  onRide:(S, P) => { P.W0 = Math.min(P.W0, S.W); },
+  stages(kind, S, P, since) {
+    const W = () => `${S.W.toFixed(1)}%`;
+    if (kind === "ex") return [
+      { at:"stim", go:() => true, who:"Stimulus", act:() => { S.drinkOn = false; },
+        say:() => `You start sweating. Sweat glands pull water and salts out of the blood, so plasma volume starts to drop and the blood contains less water.` },
+      { at:"sensor", go:() => S.W < -1.5, who:"Sensor", say:() => `Osmoreceptors in the hypothalamus detect that the blood contains less water. Plasma volume is down ${W()}.` },
+      { at:"brain", go:() => S.W < -2.5, who:"Control center",
+        say:() => `The hypothalamus compares the water in the blood to its set point. There is too little water in the blood, so it signals the pituitary gland to release ADH into the bloodstream and to turn on a thirst signal.` },
+      { at:"eff", go:() => S.W < -3.5, who:"Effectors", act:() => { S.ctrl = "on"; },
+        say:() => `ADH travels through the blood to the kidneys, and the thirst signal makes you feel thirsty. Plasma volume is down ${W()}, and sweat is still removing water. Stop exercising so the athlete can drink.` },
+    ];
+    return [
+      { at:"eff2", go:() => true, who:"Effectors: drinking and the kidneys", act:() => { S.ctrl = "on"; S.drinkOn = true; },
+        say:() => `Exercise stops, so sweating stops. The thirst signal makes the athlete drink, and water from the drink is absorbed from the intestines into the blood over several minutes. Meanwhile, ADH reaches the kidneys, so they remove less water from the blood: urine gets darker and less urine is formed.` },
+      { at:"resp", travel:true, go:() => S.net > 0.2 && since("t0") > 2, who:"Response",
+        say:() => `Water returns to the blood, and plasma volume starts to rise (${W()}). This reduces the stimulus.` },
+      { at:"brain", go:() => S.W > 0.4 * P.W0, who:"Weaker signals",
+        say:() => `As the blood gains water (plasma volume ${W()}), the osmoreceptors and hypothalamus send weaker signals, so ADH and thirst start to fall.` },
+      { at:"eff1", go:() => S.W > -0.4, who:"Back at the set point", act:() => { S.ctrl = "off"; },
+        say:() => `Plasma volume is back near the set point (${W()}). The stimulus is gone, so ADH and thirst signals stop. With less ADH, the kidneys remove more water from the blood, so urine becomes lighter and there is more of it.` },
+      { at:"stim", go:() => S.adh < 5 && S.thirst < 5, who:"Loop off", end:true,
+        say:() => `Thirst is gone, urine is pale again, and plasma volume is back to normal. The loop has shut off until a new stimulus comes along. Homeostasis!` },
+    ];
+  },
+  progress:(S, P) => 1 - S.W / P.W0,
+  passStart:S => ({ W0:Math.min(-0.5, S.W) }),
+};
+
+// ---------------- Muscle (hours) ----------------
+// D = % of fibers damaged. Immune cells and satellite cells are the two effectors. Repair takes days.
+SYSTEMS.muscle = {
+  label:"Muscle", unit:"h", speed:S => S.ex ? 0.15 : 1.5, tmax:120,   // hours per second: slow during the run, faster through the days of recovery
+  note:"This is a simplified model of a downhill run with lots of eccentric contractions, followed by five days of recovery. The numbers are illustrative and follow the same patterns as published muscle damage studies, but they are not from a real athlete.",
+  nodes:{
+    stim:{part:"Stimulus", name:"Damaged fibers", icon:"tear", title:"Damaged muscle fibers",
+      text:"Eccentric contractions, where a muscle works while it lengthens (like running downhill or lowering a weight), cause microtears: tiny tears in the sarcomeres inside muscle fibers. Z-lines get pulled out of line, and the fibers can't pull as hard."},
+    sensor:{part:"Sensor", name:"Immune cells detect", icon:"macro", title:"Resident immune cells",
+      text:"Immune cells that live in the muscle detect protein fragments leaking out of damaged fibers. The damaged fibers also release chemical alarm signals."},
+    brain:{part:"Control center", name:"Chemical signals", icon:"signals", title:"Chemical signals (cytokines)",
+      text:"Immune cells release chemical signals called cytokines. These signals call more immune cells out of the blood and activate satellite cells. In this loop, the control center is local chemical signaling in the muscle, not the brain."},
+    eff1:{part:"Effector", name:"Immune cells clean up", icon:"macro2", title:"Immune cells (neutrophils and macrophages)",
+      text:"Immune cells move from the blood into the muscle and break down damaged proteins. This inflammation causes swelling and soreness."},
+    eff2:{part:"Effector", name:"Satellite cells repair", icon:"satellite", title:"Satellite cells",
+      text:"Satellite cells are stem cells on the surface of muscle fibers. When signaled, they divide and fuse with damaged fibers to help rebuild them."},
+    resp:{part:"Response", name:"Fibers rebuilt", icon:"fiber", title:"Response",
+      text:"Damaged pieces are cleared away and fibers are rebuilt with new proteins. Damage goes down and strength returns to normal. This reduces the stimulus."},
+  },
+  readouts:[
+    {label:"Strength", unit:"% of normal", color:"--flow", get:S => Math.round(S.str)},
+    {label:"Soreness (0–10)", unit:"", color:"--heat", get:S => S.sore.toFixed(1)},
+    {label:"Damaged fibers", unit:"%", color:"--ink", get:S => S.D.toFixed(1)},
+    {label:"Satellite cells", unit:"% active", color:"--sat", get:S => Math.round(S.sat)},
+  ],
+  center:{label:"Muscle strength", value:S => Math.round(S.str) + "%", sub:"set point 100%", color:"--flow"},
+  graph:{
+    top:{key:"str", label:"Muscle strength (% of normal)", color:"--flow", set:100, setLabel:"normal",
+      range:() => [50, 105], ticks:[50, 60, 70, 80, 90, 100], fmt:v => v + "%"},
+    bottom:[{key:"imm", label:"Immune cell activity", color:"--imm"}, {key:"sat", label:"Satellite cell activity", color:"--sat"}],
+    // the first hour gets the left 20% of the axis so the run itself is visible; the rest shows the days of recovery
+    xmap:t => t <= 1 ? 0.2 * t : 0.2 + 0.8 * (t - 1) / 119, xbreak:1,
+    xticks:[[0, "0"], [0.5, "30 min"], [1, "1 h"], [24, "day 1"], [48, "day 2"], [72, "day 3"], [96, "day 4"], [120, "day 5"]], xtitle:"time (first hour, then days)",
+  },
+  init:() => ({D:0, fat:0, imm:0, sat:0, sore:0, str:100}),
+  step(S, dt) {
+    if (S.ex) { S.D += 45 * dt * (1 - S.D / 70); S.fat = ease(S.fat, 20, dt, 3, 3); }
+    else S.fat = ease(S.fat, 0, dt, 0.5, 0.5);                      // ordinary fatigue fades within hours
+    if (S.ctrl === "on") S.cmd = clamp(S.D / 20, 0, 1); else if (S.ctrl === "off") S.cmd = 0;
+    S.imm = ease(S.imm, 100 * S.cmd, dt, 0.07, 0.12);                // immune cells arrive over about a day
+    S.sat = ease(S.sat, 100 * S.cmd * Math.min(1, S.imm / 50), dt, 0.05, 0.1); // satellite cells activate after the immune signals
+    S.D = Math.max(0, S.D - (0.025 + 0.06 * S.sat / 100 + 0.005 * S.imm / 100) * S.D * dt);
+    S.sore = clamp(9 * S.imm / 100, 0, 10);                         // soreness comes from inflammation
+    S.str = 100 - 1.1 * S.D - S.fat;
+  },
+  hold(S) { S.cmd = clamp(Math.max(S.imm, S.sat) / 100, 0, 1); S.ctrl = "hold"; },
+  act:S => ({ stim:clamp(S.D / 20, 0, 1), sensor:clamp(S.D / 10, 0, 1) * (S.D > 0.5 ? 1 : 0), brain:S.ctrl === "off" ? 0 : S.cmd, eff1:S.imm / 100, eff2:S.sat / 100, resp:clamp(S.sat / 60, 0, 1) }),
+  symptoms(S) {
+    const out = [];
+    if (S.ex) out.push(["ok", "Legs working hard, feel tired"]);
+    if (S.sore < 1 && S.D < 3 && !S.ex) out.push(["ok", "Feels normal"]);
+    if (S.sore < 1 && S.D >= 3 && !S.ex) out.push(["ok", "Muscles feel weak but not sore yet"]);
+    if (S.sore >= 1 && S.sore < 3) out.push(["ok", "A little sore"]);
+    if (S.sore >= 3) out.push(["warn", "Sore and stiff, tender to touch"]);
+    if (S.str < 85 && !S.ex) out.push(["warn", "Weaker than normal"]);
+    return out;
+  },
+  msgs:{ start:"Athlete is rested. Muscle fibers are intact and strength is normal.", exOn:"Exercise starts: a downhill run with lots of eccentric contractions.", exOff:"Exercise stops. No new damage is being added." },
+  // During exercise the trip ends at the effectors. Almost all of the repair happens in recovery,
+  // so the trip continues there: effectors → response → back along "reduces the stimulus".
+  restFrom:"eff",
+  stages(kind, S, P, since) {
+    const D = () => S.D.toFixed(0), Str = () => Math.round(S.str);
+    if (kind === "ex") return [
+      { at:"stim", go:() => true, who:"Stimulus",
+        say:() => `Running downhill makes your leg muscles work while they lengthen (eccentric contractions). This causes microtears: tiny tears in the sarcomeres inside muscle fibers. Z-lines get pulled out of line, and the fibers can't pull as hard.` },
+      { at:"sensor", go:() => S.D > 4, who:"Sensor", say:() => `Damaged fibers leak protein fragments. Immune cells that live in the muscle detect these fragments. About ${D()}% of fibers are damaged.` },
+      { at:"brain", go:() => S.D > 8, who:"Control center", act:() => { P.tCtrl = S.t; },
+        say:() => `The immune cells release chemical signals called cytokines. These signals call more immune cells from the blood and activate satellite cells. Here the control center is chemical signaling in the muscle, not the brain.` },
+      { at:"eff", go:() => since("tCtrl") > 0.25, who:"Effectors", act:() => { S.ctrl = "on"; },
+        say:() => `Immune cells start to leave the blood and enter the muscle, and satellite cells begin to activate. These effectors take hours to days to fully respond, and damage is still building (${D()}% of fibers). Stop exercising to see the repair.` },
+    ];
+    return [
+      { at:"eff", go:() => true, who:"Exercise stops", act:() => { S.ctrl = "on"; },
+        say:() => `No new damage is added, and ordinary tiredness fades within a few hours. But ${D()}% of fibers still have microtears, so strength stays below normal and the cytokine signals keep calling in the effectors.` },
+      { at:"eff1", go:() => S.imm > 30, who:"Effectors: immune cells clean up",
+        say:() => `Immune cells flood in and break down damaged proteins. This inflammation causes swelling and soreness, which is why soreness peaks about a day after exercise, not right away.` },
+      { at:"eff2", go:() => S.sat > 18, who:"Effectors: satellite cells repair",
+        say:() => `Satellite cells divide and fuse with the damaged fibers, helping rebuild them with new proteins.` },
+      { at:"resp", travel:true, go:() => S.D < 0.6 * P.D0, who:"Response",
+        say:() => `Fibers are being rebuilt. Damage is down to ${D()}% of fibers, and strength is climbing back toward normal (${Str()}%). This reduces the stimulus.` },
+      { at:"brain", go:() => S.D < 0.3 * P.D0, who:"Weaker signals",
+        say:() => `With fewer damaged fibers, there are fewer protein fragments to detect, so the cytokine signals get weaker. Fewer immune cells arrive, and soreness fades.` },
+      { at:"stim", go:() => S.D < 1 && S.imm < 5 && S.sat < 5, who:"Loop off", end:true, act:() => { S.ctrl = "off"; },
+        say:() => `The fibers are repaired and strength is back to normal (${Str()}%). With no damaged fibers left, the signals stop, immune cells leave, and soreness is gone. Homeostasis!` },
+    ];
+  },
+  progress:(S, P) => 1 - S.D / P.D0,
+  passStart:S => ({ D0:Math.max(1, S.D) }),
+};
+
+// ============================ ICONS (32 x 32) ============================
+const NS = "http://www.w3.org/2000/svg", svg = $("loop");
+const el = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+function drawIcon(name, g) {
+  const c = (tag, a) => el(tag, a, g);
+  const drop = (x, y, s, fill) => c("path", {d:`M${x},${y} c${-4*s},${6*s} ${-5*s},${9*s} 0,${11*s} c${5*s},${-2*s} ${4*s},${-5*s} 0,${-11*s} z`, fill});
+  c("circle", {cx:16, cy:16, r:16, fill:"var(--soft)"});
+  switch (name) {
+    case "dumbbell":
+      c("rect", {x:7, y:14.7, width:18, height:2.6, rx:1, fill:"var(--heat)"});
+      for (const x of [4, 24.5]) c("rect", {x, y:9.75, width:3.5, height:12.5, rx:1.2, fill:"var(--heat)"});
+      for (const x of [7.5, 22]) c("rect", {x, y:11.75, width:2.5, height:8.5, rx:1, fill:"var(--heat)"});
+      break;
+    case "neuron":
+      c("circle", {cx:12, cy:16, r:4.5, fill:"var(--deep)"});
+      for (const [x, y] of [[5, 9], [4, 18], [8, 24]]) c("line", {x1:12, y1:16, x2:x, y2:y, stroke:"var(--deep)", "stroke-width":1.6, "stroke-linecap":"round"});
+      c("path", {d:"M16,16 C21,14 23,18 28,16", fill:"none", stroke:"var(--deep)", "stroke-width":1.8, "stroke-linecap":"round"});
+      c("circle", {cx:28, cy:16, r:1.8, fill:"var(--deep)"});
+      break;
+    case "brain":
+      c("path", {d:"M8,19 C4,17 5,10 10,10 C11,6 17,5 19,8 C23,6 28,10 26,15 C29,18 26,23 22,22 C20,25 14,25 13,22 C10,24 7,22 8,19 Z", fill:"none", stroke:"var(--deep)", "stroke-width":1.7});
+      c("path", {d:"M12,13 C14,15 17,12 20,14 M11,18 C14,17 17,20 21,18", fill:"none", stroke:"var(--deep)", "stroke-width":1.2});
+      c("circle", {cx:17, cy:22.5, r:2.4, fill:"var(--heat)"});
+      break;
+    case "drops":
+      drop(11, 8, 1, "var(--sweat)"); drop(21, 11, .8, "var(--sweat)");
+      c("line", {x1:5, y1:25, x2:27, y2:25, stroke:"var(--muted)", "stroke-width":1.6});
+      break;
+    case "vessel":
+      c("rect", {x:4, y:11, width:24, height:10, rx:5, fill:"none", stroke:"var(--flow)", "stroke-width":1.8});
+      for (const x of [10, 16, 22]) c("circle", {cx:x, cy:16, r:2.4, fill:"var(--flow)"});
+      break;
+    case "heatwaves":
+      c("rect", {x:5, y:23, width:22, height:4, rx:1.5, fill:"var(--muted)", opacity:.6});
+      for (const x of [10, 16, 22]) c("path", {d:`M${x},21 q-3,-3 0,-6 q3,-3 0,-6`, fill:"none", stroke:"var(--heat)", "stroke-width":1.7, "stroke-linecap":"round"});
+      break;
+    case "osmo":     // a neuron cell body sensing the blood around it
+      c("circle", {cx:16, cy:16, r:7, fill:"none", stroke:"var(--deep)", "stroke-width":1.8});
+      c("circle", {cx:16, cy:16, r:2.5, fill:"var(--deep)"});
+      for (const [x, y] of [[6, 7], [26, 8], [7, 25], [25, 25]]) c("circle", {cx:x, cy:y, r:1.6, fill:"var(--sweat)"});
+      break;
+    case "kidney":
+      c("path", {d:"M18,6 C10,4 5,10 6,17 C7,25 14,28 19,25 C22,23 20,20 18,19 C15,17 15,14 18,12 C21,10 22,7 18,6 Z", fill:"var(--adh)", opacity:.85});
+      c("path", {d:"M18,19 C22,20 24,22 26,26", fill:"none", stroke:"var(--adh)", "stroke-width":1.8, "stroke-linecap":"round"});
+      break;
+    case "glass":
+      c("path", {d:"M9,7 L23,7 L21,26 L11,26 Z", fill:"none", stroke:"var(--deep)", "stroke-width":1.7, "stroke-linejoin":"round"});
+      c("path", {d:"M10.4,14 L21.6,14 L20.7,25 L11.3,25 Z", fill:"var(--sweat)", opacity:.8});
+      break;
+    case "bloodup":  // water moving into a blood vessel
+      c("rect", {x:4, y:18, width:24, height:9, rx:4.5, fill:"none", stroke:"var(--flow)", "stroke-width":1.8});
+      drop(16, 4, .8, "var(--sweat)");
+      c("path", {d:"M16,14 L16,19 M13.5,17 L16,19.5 L18.5,17", fill:"none", stroke:"var(--sweat)", "stroke-width":1.6, "stroke-linecap":"round", "stroke-linejoin":"round"});
+      break;
+    case "tear":     // a striped muscle fiber with a break in it
+      c("path", {d:"M3,11 L14,11 L12,16 L14,21 L3,21 Z", fill:"var(--flow)", opacity:.85});
+      c("path", {d:"M29,11 L18,11 L20,16 L18,21 L29,21 Z", fill:"var(--flow)", opacity:.85});
+      for (const x of [6, 9, 23, 26]) c("line", {x1:x, y1:11, x2:x, y2:21, stroke:"var(--panel)", "stroke-width":1.2});
+      break;
+    case "macro":    // immune cell
+      c("path", {d:"M8,12 C9,6 17,5 21,8 C27,9 28,16 25,20 C24,26 15,28 11,24 C5,23 5,16 8,12 Z", fill:"var(--imm)", opacity:.8});
+      c("circle", {cx:16, cy:16, r:3.5, fill:"var(--panel)"});
+      break;
+    case "macro2":   // two immune cells
+      c("path", {d:"M3,14 C3,9 9,8 12,10 C16,10 17,15 15,18 C14,22 8,23 6,20 C3,19 2,16 3,14 Z", fill:"var(--imm)", opacity:.8});
+      c("path", {d:"M16,17 C16,12 22,11 25,13 C29,13 30,18 28,21 C27,25 21,26 19,23 C16,22 15,19 16,17 Z", fill:"var(--imm)", opacity:.8});
+      c("circle", {cx:9, cy:15, r:2.2, fill:"var(--panel)"}); c("circle", {cx:22, cy:18, r:2.2, fill:"var(--panel)"});
+      break;
+    case "signals":  // a cell sending out chemical signals
+      c("circle", {cx:16, cy:16, r:5, fill:"var(--imm)", opacity:.8});
+      for (const [x, y] of [[6, 8], [26, 7], [5, 22], [27, 24], [16, 4], [16, 28]]) c("circle", {cx:x, cy:y, r:1.8, fill:"var(--deep)"});
+      break;
+    case "satellite": // small stem cell sitting on a fiber
+      c("rect", {x:3, y:17, width:26, height:9, rx:3, fill:"var(--flow)", opacity:.5});
+      c("ellipse", {cx:16, cy:13.5, rx:6, ry:4, fill:"var(--sat)"});
+      c("circle", {cx:16, cy:13.5, r:1.6, fill:"var(--panel)"});
+      break;
+    case "fiber":    // a repaired, striped fiber
+      c("rect", {x:3, y:11, width:26, height:10, rx:3, fill:"var(--flow)", opacity:.85});
+      for (const x of [7, 11, 15, 19, 23]) c("line", {x1:x, y1:11, x2:x, y2:21, stroke:"var(--panel)", "stroke-width":1.2});
+      break;
+  }
+}
+
+// ============================ LOOP DIAGRAM ============================
+const BOX = {
+  stim:{x:190, y:22, w:180, h:58}, sensor:{x:380, y:140, w:175, h:58}, brain:{x:335, y:300, w:195, h:58},
+  eff1:{x:20, y:270, w:190, h:52}, eff2:{x:20, y:340, w:190, h:52}, resp:{x:5, y:140, w:190, h:58},
+};
+const ARROWS = {
+  ms:"M370,51 C440,55 470,90 470,136", sb:"M470,198 C470,240 455,270 440,296",
+  bs:"M335,320 C280,312 250,300 214,296", bv:"M335,338 C280,350 250,362 214,366",
+  sr:"M70,268 C65,240 75,218 90,202", vr:"M20,366 C2,330 2,240 30,202", rm:"M100,138 C110,90 140,58 186,52",
+};
+const POS = { stim:[352,22], sensor:[538,140], brain:[512,300], eff:[212,331], resp:[178,140] };
+const EFF2 = { eff1:[210,272], eff2:[210,342] };
+const ROUTE = { "stim>sensor":"ms", "sensor>brain":"sb", "resp>stim":"rm" };
+const NODEOF = { stim:["stim"], sensor:["sensor"], brain:["brain"], eff:["eff1", "eff2"], eff1:["eff1"], eff2:["eff2"], resp:["resp"] };
+let arrows = {}, nodeEls = {}, centerVal, icon, icon2, iconParts = [];
+
+function buildDiagram() {
+  svg.innerHTML = "";
+  const defs = el("defs", {}), mk = el("marker", {id:"ah", viewBox:"0 0 10 10", refX:"8", refY:"5", markerWidth:"7", markerHeight:"7", orient:"auto-start-reverse"}, defs);
+  el("path", {d:"M0,0 L10,5 L0,10 z", class:"arrowhead"}, mk);
+  arrows = {}; for (const k in ARROWS) arrows[k] = el("path", {d:ARROWS[k], class:"arrow", "marker-end":"url(#ah)"});
+  el("text", {x:40, y:96, class:"lbl"}).textContent = "reduces the stimulus";
+  const cg = el("g", {});
+  el("circle", {cx:280, cy:200, r:58, fill:"none", stroke:"var(--peri)", "stroke-width":2.5}, cg);
+  el("text", {x:280, y:182, "text-anchor":"middle", class:"lbl", style:"font-style:normal"}, cg).textContent = SYS.center.label;
+  centerVal = el("text", {x:280, y:208, "text-anchor":"middle", style:`font:600 20px var(--mono);fill:var(${SYS.center.color})`}, cg);
+  el("text", {x:280, y:228, "text-anchor":"middle", class:"lbl"}, cg).textContent = SYS.center.sub;
+  nodeEls = {};
+  for (const k in BOX) {
+    const n = SYS.nodes[k], b = BOX[k];
+    const g = el("g", {class:"node", tabindex:"0", role:"button", "aria-label":`${n.part}: ${n.name}`});
+    el("rect", {class:"base", x:b.x, y:b.y, width:b.w, height:b.h, rx:10}, g);
+    const glow = el("rect", {class:"glow", x:b.x, y:b.y, width:b.w, height:b.h, rx:10, fill:"var(--peri)", opacity:0}, g);
+    el("text", {x:b.x + 48, y:b.y + 20, class:"sub"}, g).textContent = n.part.toUpperCase();
+    el("text", {x:b.x + 48, y:b.y + 40, style:n.name.length > 18 ? "font-size:12px" : ""}, g).textContent = n.name;
+    drawIcon(n.icon, el("g", {transform:`translate(${b.x + 8},${b.y + b.h / 2 - 16})`}, g));
+    const pick = () => showInfo(k);
+    g.addEventListener("click", pick); g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+    nodeEls[k] = {g, glow};
+  }
+  iconParts = [];
+  const mkIcon = () => { const g = el("g", {opacity:0}); iconParts.push(el("circle", {r:11, fill:"none", "stroke-width":3, class:"icon-ring"}, g), el("circle", {r:10, stroke:"var(--panel)", "stroke-width":3}, g)); return g; };
+  icon = mkIcon(); icon2 = mkIcon();
+}
+function showInfo(k) {
+  for (const j in nodeEls) nodeEls[j].g.classList.toggle("sel", j === k);
+  const n = SYS.nodes[k];
+  const box = $("info"); box.className = "info"; box.innerHTML = `<h3>${n.part}: ${n.title}</h3><p>${n.text}</p>`;
+}
+function buildReadouts() {
+  $("readouts").innerHTML = SYS.readouts.map((r, i) => `<div class="ro"><div class="k">${r.label}</div><div class="v" id="ro${i}" style="color:var(${r.color})">0<span class="u"> ${r.unit}</span></div></div>`).join("");
+}
+
+// ============================ SIMULATION ============================
+let SYS, S, P = null, anim = null, holdUntil = 0, last = 0;
+const DWELL = 4800;                       // ms each step's description stays before the icon moves on
+const fmtTime = t => SYS.unit === "min" ? `${Math.floor(t)} min` : t < 1 ? `${Math.round(t * 60)} min` : t < 48 ? `${Math.floor(t)} h` : `day ${(t / 24).toFixed(1)}`;
+const clockTime = t => SYS.unit === "min" ? `Minute ${Math.floor(t)}` : t < 1 ? `Minute ${Math.round(t * 60)}` : t < 48 ? `Hour ${Math.floor(t)}` : `Day ${Math.floor(t / 24)}, hour ${Math.floor(t % 24)}`;
+
+function selectSystem(key) {
+  SYS = SYSTEMS[key];
+  for (const b of document.querySelectorAll(".tab")) b.setAttribute("aria-selected", b.dataset.sys === key ? "true" : "false");
+  $("loop").setAttribute("aria-label", `${SYS.label} feedback loop diagram`);
+  $("note").textContent = SYS.note;
+  buildDiagram(); buildReadouts(); reset();
+}
+function reset() {
+  if (S) S.running = false;
+  P = null; anim = null; holdUntil = 0; prevProg = 0;
+  S = Object.assign({ t:0, ex:false, running:false, stopped:false, hist:[], spans:[], cmd:0, ctrl:"off" }, SYS.init());
+  icon.setAttribute("opacity", 0); icon2.setAttribute("opacity", 0); setInfo(null);
+  for (const j in nodeEls) nodeEls[j].g.classList.remove("sel");
+  $("log").innerHTML = ""; addLog(SYS.msgs.start);
+  $("play").textContent = "Play"; $("ex").textContent = "Start exercising";
+  record(); update(); draw();
+}
+function record() {
+  const p = { t:S.t, [SYS.graph.top.key]:S[SYS.graph.top.key] };
+  for (const b of SYS.graph.bottom) p[b.key] = S[b.key];
+  S.hist.push(p);
+}
+function addLog(msg) {
+  const li = document.createElement("li");
+  li.innerHTML = `<time>${fmtTime(S ? S.t : 0)}</time><span>${msg}</span>`;
+  $("log").appendChild(li); $("log").scrollTop = $("log").scrollHeight;
+}
+
+// ---------- view ----------
+function update() {
+  const a = SYS.act(S);
+  for (const k in a) nodeEls[k].glow.setAttribute("opacity", (0.65 * clamp(a[k], 0, 1)).toFixed(2));
+  const live = S.running && !anim && performance.now() >= holdUntil;
+  arrows.ms.classList.toggle("live", live && a.stim > 0.1);
+  arrows.sb.classList.toggle("live", live && a.sensor > 0.15);
+  arrows.bs.classList.toggle("live", live && a.brain > 0.1);
+  arrows.bv.classList.toggle("live", live && a.brain > 0.1);
+  arrows.sr.classList.toggle("live", live && a.eff1 > 0.08);
+  arrows.vr.classList.toggle("live", live && a.eff2 > 0.08);
+  arrows.rm.classList.toggle("live", live && a.resp > 0.1);
+  rideReturnArrow();
+  if (P && P.kind === "rest" && P.onArrow && S.running && P.i < P.stages.length - 1) arrows.rm.classList.add("live");
+  centerVal.textContent = SYS.center.value(S);
+  SYS.readouts.forEach((r, i) => { $("ro" + i).firstChild.nodeValue = r.get(S); });
+  $("clock").textContent = `${clockTime(S.t)} · ${S.ex ? "Exercising" : S.stopped ? "Recovering" : "Resting"}`;
+  $("sym").innerHTML = SYS.symptoms(S).map(([c, x]) => `<span class="chip ${c === "ok" ? "" : c}"><i></i>${x}</span>`).join("");
+}
+const cv = $("graph"), g = cv.getContext("2d");
+function draw() {
+  const W = cv.width, H = cv.height, L = 92, R = 20, top1 = 20, h1 = 300, top2 = 370, h2 = 140;
+  const C = n => css(n), GR = SYS.graph, TM = SYS.tmax;
+  g.clearRect(0, 0, W, H);
+  const fr = GR.xmap || (t => t / TM);
+  const x = t => L + (W - L - R) * fr(Math.min(t, TM));
+  const [lo, hi] = GR.top.range(S.hist);
+  const yT = v => top1 + h1 * (1 - (v - lo) / (hi - lo));
+  const yP = v => top2 + h2 * (1 - v / 100);
+  // exercise shading (at least a few pixels wide so short bouts stay visible)
+  g.fillStyle = C("--soft");
+  for (const s of S.spans) {
+    const a = x(s[0]), b = Math.max(x(s[1] ?? S.t), a + 6);
+    g.fillRect(a, top1, b - a, h1); g.fillRect(a, top2, b - a, h2);
+  }
+  g.font = "600 20px 'IBM Plex Mono', monospace"; g.textAlign = "left";
+  for (const s of S.spans) { g.fillStyle = C("--deep"); g.fillText("exercise", x(s[0]) + 8, top1 + 24); }
+  // grid
+  g.strokeStyle = C("--line"); g.lineWidth = 1; g.fillStyle = C("--muted"); g.font = "20px 'Atkinson Hyperlegible', sans-serif"; g.textAlign = "right";
+  const ticks = GR.top.ticks || (() => { const t = []; const step = hi - lo > 12 ? 4 : 2; for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) t.push(v); return t; })();
+  for (const v of ticks) { g.beginPath(); g.moveTo(L, yT(v)); g.lineTo(W - R, yT(v)); g.stroke(); g.fillText(GR.top.fmt(v), L - 10, yT(v) + 7); }
+  for (const v of [0, 50, 100]) { g.beginPath(); g.moveTo(L, yP(v)); g.lineTo(W - R, yP(v)); g.stroke(); g.fillText(v + "%", L - 10, yP(v) + 7); }
+  g.textAlign = "center";
+  GR.xticks.forEach(([t, lab], i) => { g.textAlign = i === GR.xticks.length - 1 ? "right" : i === 0 ? "left" : "center"; g.fillText(lab, x(t) + (i === 0 ? -6 : i === GR.xticks.length - 1 ? 6 : 0), top2 + h2 + 26); });
+  g.textAlign = "center";
+  g.fillText(GR.xtitle, (L + W - R) / 2, H - 4);
+  if (GR.xbreak) { g.setLineDash([3, 5]); g.strokeStyle = C("--muted"); g.lineWidth = 1.5; for (const [a, h] of [[top1, h1], [top2, h2]]) { g.beginPath(); g.moveTo(x(GR.xbreak), a); g.lineTo(x(GR.xbreak), a + h); g.stroke(); } g.setLineDash([]); }
+  // set point
+  g.setLineDash([10, 8]); g.strokeStyle = C("--deep"); g.lineWidth = 2; g.beginPath(); g.moveTo(L, yT(GR.top.set)); g.lineTo(W - R, yT(GR.top.set)); g.stroke(); g.setLineDash([]);
+  g.textAlign = "right"; g.fillStyle = C("--deep"); g.fillText(GR.top.setLabel, W - R - 4, yT(GR.top.set) - 8);
+  // labels
+  g.textAlign = "left"; g.font = "600 20px 'Atkinson Hyperlegible', sans-serif";
+  g.fillStyle = C(GR.top.color); g.fillText(GR.top.label, L + 4, top1 + h1 - 10);
+  let lx = L + 4; for (const b of GR.bottom) { g.fillStyle = C(b.color); g.fillText(b.label, lx, top2 - 10); lx += g.measureText(b.label).width + 24; }
+  // lines
+  const line = (key, ys, col) => { if (S.hist.length < 2) return; g.strokeStyle = col; g.lineWidth = 4; g.lineJoin = "round"; g.beginPath(); S.hist.forEach((p, i) => { const X = x(p.t), Y = ys(p[key]); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke(); };
+  line(GR.top.key, yT, C(GR.top.color));
+  for (const b of GR.bottom) line(b.key, yP, C(b.color));
+  if (S.hist.length < 3 && !S.running) { g.fillStyle = C("--muted"); g.textAlign = "center"; g.font = "22px 'Atkinson Hyperlegible', sans-serif"; g.fillText("Press Start exercising", (L + W - R) / 2, top1 + 40); }
+}
+
+// ---------- run loop ----------
+function frame(ts) {
+  if (!S.running) return;
+  const dtReal = Math.min(0.1, (ts - (last || ts)) / 1000); last = ts;
+  // the graph holds still while the icon moves and while a new step's description is showing
+  let simDt = (anim || ts < holdUntil) ? 0 : dtReal * (typeof SYS.speed === "function" ? SYS.speed(S) : SYS.speed) * +$("speed").value;
+  const sub = SYS.unit === "min" ? 0.05 : 0.02;
+  while (simDt > 0) { const d = Math.min(sub, simDt); S.t += d; SYS.step(S, d); simDt -= d; }
+  const fr = SYS.graph.xmap || (t => t / SYS.tmax);
+  if (fr(S.t) - fr(S.hist[S.hist.length - 1].t) > 0.0015) record();
+  if (S.t >= SYS.tmax) { setPlay(false); addLog("End of the run. Press Reset to try again."); }
+  advance(ts);
+  update(); draw();
+  if (S.running) requestAnimationFrame(frame);
+}
+function setPlay(on) {
+  S.running = on; $("play").textContent = on ? "Pause" : "Play"; last = 0;
+  if (on) { if (S.t >= SYS.tmax) return setPlay(false); requestAnimationFrame(frame); }
+  update(); draw();
+}
+$("play").onclick = () => setPlay(!S.running);
+$("ex").onclick = () => {
+  if (S.t >= SYS.tmax) return;
+  S.ex = !S.ex;
+  if (S.ex) { S.spans.push([S.t, null]); addLog(SYS.msgs.exOn); }
+  else { S.spans[S.spans.length - 1][1] = S.t; S.stopped = true; addLog(SYS.msgs.exOff); }
+  $("ex").textContent = S.ex ? "Stop exercising" : "Start exercising";
+  startPass(S.ex ? "ex" : "rest");
+  if (!S.running) setPlay(true);
+  update(); draw();
+};
+$("reset").onclick = () => reset();
+for (const b of document.querySelectorAll(".tab")) b.onclick = () => selectSystem(b.dataset.sys);
+
+// ---------- the moving icon ----------
+// Exercise: one narrated trip, stimulus → sensor → control center → effectors → response.
+// Recovery: the same loop keeps running. The icon rides the "reduces the stimulus" arrow back toward the
+// stimulus as the stimulus shrinks, and the box describes what changes along the way.
+let returnPts = null;
+function startPass(kind) {
+  const prevAt = P && P.at, prevKind = P && P.kind;
+  anim = null;                                              // drop any trip left over from the last pass
+  P = Object.assign({ kind, i:-1, shown:-1e9, t0:S.t, at:prevAt, prog:0 }, SYS.passStart(S));
+  const since = k => S.t - (P[k] ?? 1e9);
+  P.stages = SYS.stages(kind, S, P, since);
+  const col = kind === "ex" ? "var(--heat)" : "var(--sweat)";
+  iconParts.forEach((c, i) => c.setAttribute(i % 2 ? "fill" : "stroke", col));
+  icon.setAttribute("opacity", 1);
+  returnPts = samplePath("rm", POS.resp, POS.stim);
+  if (kind === "ex") {
+    if (!P.at) { P.at = "stim"; place(icon, POS.stim); }
+    else if (prevKind === "rest") { const p = along(returnPts, prevProg); P.at = "stim"; place(icon, p); moveTrack([p, ...returnPts.filter((q, i) => i / (returnPts.length - 1) >= prevProg)], "stim"); }
+    else if (P.at !== "stim") moveIcon(P.at, "stim", null, true);
+  } else {
+    // recovery picks up where the exercise trip ended (the response, or the effectors for water)
+    P.onArrow = false; P.ready = false;
+    const home = SYS.restFrom || "resp";
+    const ready = () => { P.at = home; P.ready = true; if (home === "resp") startRide(); };
+    if (P.at === home) ready(); else moveIcon(P.at || "stim", home, ready, true);
+  }
+}
+let prevProg = 0;
+function moveTrack(pts, to) {
+  const t0 = performance.now(), pass = P; anim = true;
+  const tick = now => { if (P !== pass) return; const f = Math.min(1, (now - t0) / 500); place(icon, along(pts, f)); if (f < 1) return requestAnimationFrame(tick); anim = null; P.at = to; };
+  requestAnimationFrame(tick);
+}
+function startRide() {
+  if (SYS.onRide) SYS.onRide(S, P);
+  P.onArrow = true; P.p0 = clamp(SYS.progress(S, P), 0, 0.99);
+}
+function rideReturnArrow() {
+  if (!P || P.kind !== "rest" || !P.onArrow || anim) return;
+  P.prog = Math.max(P.prog, clamp((SYS.progress(S, P) - P.p0) / (1 - P.p0), 0, 1));     // only moves forward
+  if (P.i === P.stages.length - 1) P.prog = 1;
+  prevProg = P.prog;
+  place(icon, along(returnPts, P.prog));
+}
+const place = (gEl, [x, y]) => gEl.setAttribute("transform", `translate(${x},${y})`);
+function samplePath(key, start, end) {
+  const pts = [start], p = arrows[key], len = p.getTotalLength();
+  for (let i = 0; i <= 24; i++) { const q = p.getPointAtLength(len * i / 24); pts.push([q.x, q.y]); }
+  pts.push(end); return pts;
+}
+// one track, or two tracks when the signal splits to (or comes back from) both effectors
+function routeTracks(from, to) {
+  if (from === "brain" && to === "eff") return [samplePath("bs", POS.brain, EFF2.eff1), samplePath("bv", POS.brain, EFF2.eff2)];
+  if (from === "eff" && to === "resp") return [samplePath("sr", EFF2.eff1, POS.resp), samplePath("vr", EFF2.eff2, POS.resp)];
+  const key = ROUTE[`${from}>${to}`];
+  return [key ? samplePath(key, POS[from], POS[to]) : [from === "eff" ? EFF2.eff1 : POS[from], POS[to]]];
+}
+const along = (pts, f) => { const idx = f * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(idx)), r = idx - i; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * r, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * r]; };
+function moveIcon(from, to, then, fast) {
+  const tracks = routeTracks(from, to), dur = fast ? 500 : 1400, t0 = performance.now(), pass = P;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  icon2.setAttribute("opacity", tracks.length > 1 ? 1 : 0);
+  anim = true;
+  const tick = now => {
+    if (P !== pass) return;                                  // a newer pass took over
+    const f = reduce ? 1 : Math.min(1, (now - t0) / dur);
+    place(icon, along(tracks[0], f)); if (tracks[1]) place(icon2, along(tracks[1], f));
+    if (f < 1) return requestAnimationFrame(tick);
+    anim = null; P.at = to;
+    if (to !== "eff") icon2.setAttribute("opacity", 0);
+    then && then();
+  };
+  requestAnimationFrame(tick);
+}
+const HOWTO = `<h3>How to use this</h3><p>Press <b>Start exercising</b>. An icon carries the signal around the loop, and this box explains each step as it happens. When the box tells you to, press <b>Stop exercising</b>. During recovery the same loop keeps running, and the icon travels back along the "reduces the stimulus" arrow as the stimulus shrinks.</p>`;
+function setInfo(st) {
+  const box = $("info");
+  if (!st) { box.className = "info"; box.innerHTML = HOWTO; return; }
+  const msg = st.say(), n = P.i + 1;
+  box.className = "info " + P.kind;
+  const tag = P.kind === "ex" ? `During exercise · step ${n} of ${P.stages.length}` : `Recovery · the same loop keeps running`;
+  box.innerHTML = `<div class="tag">${tag}</div><h3>${st.who}</h3><p>${msg}</p>${$("pausestep").checked && n < P.stages.length ? `<button type="button" id="bgo">Continue</button>` : ""}`;
+  void box.offsetWidth; box.classList.add("flash");
+  const go = $("bgo"); if (go) go.onclick = () => setPlay(true);
+  for (const j in nodeEls) nodeEls[j].g.classList.toggle("sel", NODEOF[st.at].includes(j));
+  addLog(`${st.who}: ${msg}`);
+}
+function advance(now) {
+  if (!P || anim || P.i >= P.stages.length - 1 || (P.kind === "rest" && !P.ready)) return;
+  if (now - P.shown < DWELL) return;
+  const next = P.stages[P.i + 1];
+  if (!next.go()) return;
+  const pass = P;
+  const show = () => {
+    if (P !== pass) return;
+    P.i++; next.act && next.act(); P.shown = performance.now(); holdUntil = P.shown + DWELL; setInfo(next);
+    if (next.end) icon.setAttribute("opacity", 0.35);                       // loop off: the icon rests, faded, at the stimulus
+    if ($("pausestep").checked || P.i === P.stages.length - 1) setPlay(false);   // always pause at the end of exercise's trip and at loop off
+  };
+  if (P.kind === "rest" && next.travel) moveIcon(P.at, next.at, () => { show(); if (next.at === "resp") startRide(); });
+  else if (P.kind === "rest" || (P.i === -1 && P.at === "stim")) show(); else moveIcon(P.at, next.at, show);
+}
+
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => draw());
+new MutationObserver(() => draw()).observe(document.documentElement, { attributes:true, attributeFilter:["data-theme"] });
+selectSystem("temp");
+})();
+</script>
+
+</body>
+</html>
